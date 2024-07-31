@@ -1,1 +1,63 @@
+import pandas as pd
+import tensorflow as tf
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Embedding, LSTM, Dense, SpatialDropout1D
+from sklearn.metrics import accuracy_score
+import numpy as np
+import matplotlib.pyplot as plt
+
+df = pd.read_csv('/IMDB Dataset.csv')  
+print(df.head())
+
+def preprocess_text(text):
+        text = text.lower()
+        text = ''.join([char for char in text if char.isalnum() or char.isspace()])
+        return text
+
+df['review'] = df['review'].apply(preprocess_text)
+
+tokenizer = Tokenizer(num_words=5000)
+tokenizer.fit_on_texts(df['review'].values)
+X = tokenizer.texts_to_sequences(df['review'].values)
+X = pad_sequences(X, maxlen=500)
+
+y = pd.get_dummies(df['sentiment']).values
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+model = Sequential()
+model.add(Embedding(input_dim=5000, output_dim=128, input_length=500))
+model.add(SpatialDropout1D(0.2))
+model.add(LSTM(100, dropout=0.2, recurrent_dropout=0.2))
+model.add(Dense(2, activation='softmax'))
+
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+history = model.fit(X_train, y_train, epochs=3, batch_size=64, validation_data=(X_test, y_test), verbose=2)
+
+y_pred = model.predict(X_test)
+y_pred_classes = [np.argmax(element) for element in y_pred]
+y_test_classes = [np.argmax(element) for element in y_test]
+
+print("Accuracy:", accuracy_score(y_test_classes, y_pred_classes))
+
+
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.title('Model accuracy')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend(['Train', 'Test'], loc='upper left')
+plt.show()
+
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('Model loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend(['Train', 'Test'], loc='upper left')
+plt.show()
 
